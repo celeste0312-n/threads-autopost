@@ -1,6 +1,12 @@
 {
-  "hours_jst": [7, 12, 21],
-  "reason": "初期設定（毎週月曜に実績データから自動更新されます）",
-  "avg_views_by_hour": {},
-  "updated_at": null
+  "hours_jst": [
+    7,
+    12,
+    21
+  ],
+  "reason": "分析できる投稿が5件と少ないため、定番の時間帯を使用",
+  "avg_views_by_hour": {
+    "22": 10
+  },
+  "updated_at": "2026-10-21T18:20+09:00"
 }
