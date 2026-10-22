@@ -1,0 +1,60 @@
+name: Instagram 自動投稿
+
+on:
+  schedule:
+    - cron: "17 11 * * 1,3,5"  # 毎週 月・水・金の 20:17（日本時間）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: instagram-post
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      GH_PAT: ${{ secrets.GH_PAT }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: 日本語フォントと必要なものを準備
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q fonts-noto-cjk
+          pip install -r requirements.txt pillow
+      - run: git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Instagram トークンを更新（60日の期限切れ防止）
+        if: env.GH_PAT != ''
+        continue-on-error: true  # 発行から24時間以内などで更新できなくても、投稿は続ける
+        run: |
+          NEW_TOKEN=$(python -c "import instagram_api; print(instagram_api.refresh_token())")
+          echo "::add-mask::$NEW_TOKEN"
+          echo "$NEW_TOKEN" | GH_TOKEN="$GH_PAT" gh secret set INSTAGRAM_ACCESS_TOKEN --repo "$GITHUB_REPOSITORY"
+
+      - name: 投稿の内容とスライド画像を作る
+        run: python instagram_post.py generate
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: スライド画像を公開する
+        run: |
+          git add -A ig_images
+          git commit -m "Instagram 用のスライド画像を追加"
+          git pull --rebase && git push
+          echo "IMAGES_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Instagram に投稿する
+        run: python instagram_post.py publish
+
+      - name: 投稿の記録を保存
+        if: always()
+        run: |
+          git add -A ig_images ig_posted.txt 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "Instagram の投稿を記録" && git pull --rebase && git push)
