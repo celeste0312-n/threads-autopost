@@ -1,5 +1,6 @@
 """Threads API の薄いラッパー。"""
 import os
+import re
 import time
 from datetime import datetime
 
@@ -63,9 +64,31 @@ def post_views(media_id: str) -> int | None:
     return None
 
 
+def split_topic_tag(text: str) -> tuple[str, str | None]:
+    """本文の最後にある「#タグ」を取り出し、(タグを除いた本文, タグ) を返す。"""
+    m = re.search(r"\s*[#＃]([^\s#＃]+)\s*$", text)
+    if not m:
+        return text, None
+    tag = re.sub(r"[.&]", "", m.group(1))[:50]  # Threads のタグに「.」「&」は使えない
+    if not tag:
+        return text, None
+    return text[: m.start()].rstrip(), tag
+
+
 def publish_text(text: str) -> str:
-    """テキスト投稿を作成して公開し、投稿IDを返す。"""
-    container_id = _post("me/threads", media_type="TEXT", text=text)["id"]
+    """テキスト投稿を作成して公開し、投稿IDを返す。最後の #タグ はトピックとして付ける。"""
+    body, tag = split_topic_tag(text)
+    try:
+        if tag:
+            container_id = _post("me/threads", media_type="TEXT", text=body, topic_tag=tag)["id"]
+        else:
+            container_id = _post("me/threads", media_type="TEXT", text=text)["id"]
+    except requests.HTTPError as e:
+        if not tag:
+            raise
+        # トピックの指定でエラーになったら、タグを本文に残したまま投稿する
+        print(f"トピック「{tag}」を付けられなかったため、本文に残して投稿します: {e.response.text[:300]}")
+        container_id = _post("me/threads", media_type="TEXT", text=text)["id"]
     for _ in range(10):
         status = _get(container_id, fields="status").get("status")
         if status == "FINISHED":
