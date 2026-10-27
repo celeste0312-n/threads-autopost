@@ -34,12 +34,16 @@ jobs:
           pip install -r requirements.txt pillow
       - run: git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: 今日もう投稿していないか確認
+      - name: 最近もう投稿していないか確認
         run: |
-          TODAY=$(TZ=Asia/Tokyo date +%F)
-          if grep -q "^# $TODAY" ig_posted.txt 2>/dev/null; then
-            echo "今日（$TODAY）はもう投稿済みなので、何もしません"
-            echo "DONE_TODAY=true" >> "$GITHUB_ENV"
+          # 直近12時間に投稿していれば何もしない（GitHub の実行が遅れて日付をまたいでも、二重に投稿しない）
+          LAST=$(grep -oE "^# [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}" ig_posted.txt 2>/dev/null | tail -1 | cut -c3-)
+          if [ -n "$LAST" ]; then
+            AGO=$(( $(date +%s) - $(TZ=Asia/Tokyo date -d "$LAST" +%s) ))
+            if [ "$AGO" -lt 43200 ]; then
+              echo "直近の投稿（$LAST）から12時間たっていないので、何もしません"
+              echo "DONE_TODAY=true" >> "$GITHUB_ENV"
+            fi
           fi
 
       - name: Instagram トークンを更新（60日の期限切れ防止）
