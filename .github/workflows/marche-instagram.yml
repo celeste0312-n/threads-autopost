@@ -9,7 +9,7 @@ on:
     - cron: "23 12 * * *"
   workflow_dispatch:
     inputs:
-      no:
+      post_no:
         description: "番号を指定してすぐ投稿する（空なら今日の分）"
         required: false
 
@@ -44,7 +44,7 @@ jobs:
 
       - name: 今日の分を投稿する
         env:
-          POST_NO: ${{ inputs.no }}
+          POST_NO: ${{ inputs.post_no }}
         run: |
           if [ -n "$POST_NO" ]; then
             python marche_post.py --no "$POST_NO"
