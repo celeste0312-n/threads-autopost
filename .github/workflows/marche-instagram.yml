@@ -1,0 +1,59 @@
+name: マルシェ主催の教科書 Instagram 自動投稿
+
+on:
+  schedule:
+    # 毎日 19:23（日本時間）。GitHub が混んでいて動かなかったときのために、
+    # 20:23・21:23 にも動かす（その日の分をもう投稿していれば、何もしないで終わる）
+    - cron: "23 10 * * *"
+    - cron: "23 11 * * *"
+    - cron: "23 12 * * *"
+  workflow_dispatch:
+    inputs:
+      no:
+        description: "番号を指定してすぐ投稿する（空なら今日の分）"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: marche-instagram-post
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      GH_PAT: ${{ secrets.GH_PAT }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.MARCHE_INSTAGRAM_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Instagram トークンを更新（60日の期限切れ防止）
+        if: env.GH_PAT != '' && env.INSTAGRAM_ACCESS_TOKEN != ''
+        continue-on-error: true  # 発行から24時間以内などで更新できなくても、投稿は続ける
+        run: |
+          NEW_TOKEN=$(python -c "import instagram_api; print(instagram_api.refresh_token())")
+          echo "::add-mask::$NEW_TOKEN"
+          echo "$NEW_TOKEN" | GH_TOKEN="$GH_PAT" gh secret set MARCHE_INSTAGRAM_ACCESS_TOKEN --repo "$GITHUB_REPOSITORY"
+
+      - name: 今日の分を投稿する
+        env:
+          POST_NO: ${{ inputs.no }}
+        run: |
+          if [ -n "$POST_NO" ]; then
+            python marche_post.py --no "$POST_NO"
+          else
+            python marche_post.py
+          fi
+
+      - name: 投稿の記録を保存
+        if: always()
+        run: |
+          git add marche/posted.txt
+          git diff --cached --quiet || (git commit -m "マルシェ主催の教科書の投稿を記録" && git pull --rebase && git push)
