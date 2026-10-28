@@ -74,3 +74,29 @@
 - Gemini の無料枠の上限は Google の都合で変わることがあります。上限に達した場合は1時間後にもう一度試し、それでもだめならその回の投稿は見送られます。
 - AI が書いた文章は、事実と違う内容を含むことがあります。
 - 無料枠を超えないよう、この仕組み以外で GitHub Actions をたくさん使っている場合は、Settings → Billing で使用量を確認してください。無料枠を超えても、支払い方法を登録していなければ請求はされず、その月の実行が止まるだけです。
+
+---
+
+# マルシェ主催の教科書：Instagram 自動投稿（別アカウント）
+
+`marche/posts.json` に作っておいた投稿（画像は `marche/images/<番号>/`）を、**決めた日付の 19:23（日本時間）ごろ**に1日1件ずつ投稿します。Celeste の投稿とは別の仕組みで、お互いに影響しません。
+
+| ファイル | 中身 |
+|---|---|
+| `marche_post.py` | 今日の日付の投稿を探して投稿する |
+| `.github/workflows/marche-instagram.yml` | 毎日 19:23・20:23・21:23 に動かす（二重投稿はしない） |
+| `marche/posts.json` | 投稿の一覧（番号・日付・キャプション・ハッシュタグ・画像） |
+| `marche/posted.txt` | 投稿した記録（自動で追記） |
+
+## 最初に1回だけやること
+1. マルシェ主催の教科書の Instagram を**プロアカウント**にしておく。
+2. [Meta for Developers](https://developers.facebook.com/) で、Celeste で使っているアプリを開き、「Instagram API（Instagramログイン）」の「アクセストークンを生成」で**マルシェ主催の教科書のアカウントを追加**して、トークンを発行する。
+3. このリポジトリの **Settings → Secrets and variables → Actions** に、`MARCHE_INSTAGRAM_ACCESS_TOKEN` という名前でそのトークンを登録する。
+
+登録するまでは、毎日動いても「まだ登録されていないので何もしません」と表示されて終わります。
+
+## 手動で投稿したいとき
+Actions →「マルシェ主催の教科書 Instagram 自動投稿」→ Run workflow。番号を入れると、その投稿をすぐに出せます。
+
+## 投稿を足すとき
+`marche/posts.json` に追記し、画像（JPEG、1080×1350、2〜10枚）を `marche/images/<番号>/` に置きます。ハッシュタグは先頭から5個だけ使います（変えるときは環境変数 `MARCHE_MAX_HASHTAGS`）。
