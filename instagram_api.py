@@ -63,7 +63,19 @@ def publish_carousel(image_urls: list[str], caption: str) -> str:
         f"{user_id}/media", media_type="CAROUSEL", children=",".join(children), caption=caption
     )["id"]
     _wait_until_ready(container)
-    return _post(f"{user_id}/media_publish", creation_id=container)["id"]
+    return _publish(user_id, container)
+
+
+def _publish(user_id: str, container: str) -> str:
+    # 準備完了と出ても、すぐ公開すると「まだ準備中（9007）」と断られることがあるので、少し待ってやり直す
+    for attempt in range(4):
+        try:
+            return _post(f"{user_id}/media_publish", creation_id=container)["id"]
+        except RuntimeError as e:
+            if '"code":9007' not in str(e) or attempt == 3:
+                raise
+            print(f"まだ公開の準備中なので、{20 * (attempt + 1)}秒待ってやり直します")
+            time.sleep(20 * (attempt + 1))
 
 
 def refresh_token() -> str:

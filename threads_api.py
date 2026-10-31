@@ -96,7 +96,15 @@ def publish_text(text: str) -> str:
         if status in ("ERROR", "EXPIRED"):
             raise RuntimeError(f"投稿の準備に失敗しました: {status}")
         time.sleep(3)
-    return _post("me/threads_publish", creation_id=container_id)["id"]
+    # 準備完了の直後は公開を断られる（400）ことがあるので、少し待ってやり直す
+    for attempt in range(4):
+        try:
+            return _post("me/threads_publish", creation_id=container_id)["id"]
+        except requests.HTTPError as e:
+            if e.response.status_code != 400 or attempt == 3:
+                raise
+            print(f"公開できなかったので、{15 * (attempt + 1)}秒待ってやり直します: {e.response.text[:300]}")
+            time.sleep(15 * (attempt + 1))
 
 
 def refresh_token() -> str:
